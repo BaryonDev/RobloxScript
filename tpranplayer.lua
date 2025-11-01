@@ -18,7 +18,7 @@ wait(0.5)
 
 -- Variables
 local teleportEnabled = false
-local teleportDelay = 2 -- detik
+local teleportDelay = 0.7 -- detik
 
 -- Create GUI
 local ScreenGui = Instance.new("ScreenGui")
