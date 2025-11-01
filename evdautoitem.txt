@@ -1,0 +1,224 @@
+-- Auto ItemSpawn Teleporter Script (Auto Toggle Version)
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local Player = Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+
+-- Status Indicator GUI Creation
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "TeleporterStatusGui"
+ScreenGui.Parent = Player.PlayerGui
+
+local StatusFrame = Instance.new("Frame")
+StatusFrame.Size = UDim2.new(0, 200, 0, 50)
+StatusFrame.Position = UDim2.new(0.8, 0, 0.1, 0)
+StatusFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+StatusFrame.BorderSizePixel = 0
+StatusFrame.Parent = ScreenGui
+
+local StatusText = Instance.new("TextLabel")
+StatusText.Size = UDim2.new(1, 0, 1, 0)
+StatusText.BackgroundTransparency = 1
+StatusText.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusText.Text = "Auto ItemSpawn Teleporter\nInitializing..."
+StatusText.Font = Enum.Font.GothamSemibold
+StatusText.TextSize = 14
+StatusText.Parent = StatusFrame
+
+local UICornerFrame = Instance.new("UICorner")
+UICornerFrame.CornerRadius = UDim.new(0, 6)
+UICornerFrame.Parent = StatusFrame
+
+-- Teleport Logic
+local isTeleporting = false
+local currentTeleportCoroutine = nil
+local autoToggleEnabled = true -- Auto toggle is enabled by default
+
+-- Function to get ItemSpawns
+local function GetItemSpawns()
+    local itemSpawns = {}
+    local itemSpawnsFolder = workspace.Game.Map.ItemSpawns
+    
+    if itemSpawnsFolder then
+        for _, itemSpawn in ipairs(itemSpawnsFolder:GetChildren()) do
+            if itemSpawn.Name == "ItemSpawn" then
+                table.insert(itemSpawns, itemSpawn)
+            end
+        end
+    end
+    
+    return itemSpawns
+end
+
+-- Function to teleport to all ItemSpawns with delay
+local function TeleportToAllItemSpawns()
+    isTeleporting = true
+    StatusText.Text = "ItemSpawn Teleporter [ON]\nCollecting items..."
+    StatusFrame.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+    
+    -- Timer for refreshing ItemSpawn locations
+    local lastUpdateTime = 0
+    local updateInterval = 10 -- Update ItemSpawn locations every 10 seconds
+    
+    currentTeleportCoroutine = coroutine.create(function()
+        while isTeleporting do
+            -- Check if it's time to update the ItemSpawn locations
+            local currentTime = tick()
+            if currentTime - lastUpdateTime >= updateInterval then
+                itemSpawns = GetItemSpawns()
+                lastUpdateTime = currentTime
+                StatusText.Text = "ItemSpawn Teleporter [ON]\nLocations Updated"
+                wait(0.3)
+                StatusText.Text = "ItemSpawn Teleporter [ON]\nCollecting items..."
+            end
+            
+            -- Get fresh ItemSpawns
+            local itemSpawns = GetItemSpawns()
+            
+            for i, itemSpawn in ipairs(itemSpawns) do
+                if not isTeleporting then break end
+                
+                -- Update character reference in case it changed
+                Character = Player.Character or Player.CharacterAdded:Wait()
+                HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+                
+                -- Teleport to the item spawn
+                HumanoidRootPart.CFrame = itemSpawn.CFrame + Vector3.new(0, 3, 0)
+                
+                -- Wait before next teleport
+                wait(0.26)
+            end
+        end
+    end)
+    
+    coroutine.resume(currentTeleportCoroutine)
+end
+
+-- Function to stop teleporting
+local function StopTeleporting()
+    isTeleporting = false
+    StatusText.Text = "ItemSpawn Teleporter [OFF]\nPaused"
+    StatusFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    
+    if currentTeleportCoroutine and coroutine.status(currentTeleportCoroutine) == "running" then
+        coroutine.yield(currentTeleportCoroutine)
+    end
+end
+
+-- Auto toggle cycle function with correct logic pattern:
+-- OFF > Delay 2s > ON > Delay 20s > OFF > Delay 2s > ON > loop...
+local function RunAutoToggleCycle()
+    while autoToggleEnabled do
+        -- Step 1: Start in OFF state
+        if isTeleporting then
+            StopTeleporting()
+        end
+        
+        -- Step 2: Wait 2 seconds then turn ON
+        StatusText.Text = "ItemSpawn Teleporter [OFF]\nWaiting 2s before activation"
+        wait(0.4)
+        
+        -- Check if auto toggle is still enabled
+        if not autoToggleEnabled then break end
+        
+        -- Step 3: Turn ON for 20 seconds
+        TeleportToAllItemSpawns()
+        
+        -- Wait 20 seconds while teleporting is active
+        for i = 20, 1, -1 do
+            if not autoToggleEnabled then break end
+            StatusText.Text = "ItemSpawn Teleporter [ON]\nActive for: " .. i .. "s"
+            wait(1)
+        end
+        
+        -- Check if auto toggle is still enabled
+        if not autoToggleEnabled then break end
+        
+        -- Step 4: Turn OFF
+        StopTeleporting()
+        
+        -- Step 5: Wait 2 seconds before starting the next cycle
+        StatusText.Text = "ItemSpawn Teleporter [OFF]\nWaiting 2s before next cycle"
+        wait(2)
+        
+        -- The loop will continue from here back to Step 3
+    end
+    
+    -- When auto toggle is disabled
+    if isTeleporting then
+        StopTeleporting()
+    end
+    
+    StatusText.Text = "ItemSpawn Teleporter [OFF]\nAuto Mode: Disabled"
+end
+
+-- Listen for X key press to toggle auto mode
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.X then
+        autoToggleEnabled = not autoToggleEnabled
+        
+        if autoToggleEnabled then
+            StatusText.Text = "ItemSpawn Teleporter [OFF]\nAuto Mode: Enabled"
+            -- Start the auto toggle cycle in a new thread
+            spawn(RunAutoToggleCycle)
+        else
+            StatusText.Text = "ItemSpawn Teleporter [" .. (isTeleporting and "ON" or "OFF") .. "]\nAuto Mode: Disabled"
+        end
+    end
+end)
+
+-- Make GUI draggable
+local dragging
+local dragInput
+local dragStart
+local startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    StatusFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+StatusFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = StatusFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+StatusFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+-- Handle character respawning
+Player.CharacterAdded:Connect(function(newCharacter)
+    Character = newCharacter
+    HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+end)
+
+-- Start auto toggle cycle automatically when script runs
+spawn(function()
+    wait(0.3) -- Short delay before starting
+    StatusText.Text = "Auto ItemSpawn Teleporter\nStarting automatic cycle..."
+    wait(0.3)
+    spawn(RunAutoToggleCycle)
+end)
+
+-- Print confirmation
+print("Auto ItemSpawn Teleporter activated! Auto cycle: OFF > 2s wait > ON for 20s > OFF > 2s wait > repeat")
+print("Press X to toggle auto mode on/off")
