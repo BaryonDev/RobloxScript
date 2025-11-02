@@ -106,7 +106,7 @@ local function teleportToRandomPlayer()
     if targetPlayer then
         local targetChar = targetPlayer.Character
         if targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
-            HumanoidRootPart.CFrame = targetChar.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0)
+            HumanoidRootPart.CFrame = targetChar.HumanoidRootPart.CFrame * CFrame.new(0, 100, 0)
             print("Teleported to: " .. targetPlayer.Name)
         end
     end
