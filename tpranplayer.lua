@@ -18,7 +18,7 @@ wait(0.5)
 
 -- Variables
 local teleportEnabled = false
-local teleportDelay = 0.7 -- detik
+local teleportDelay = 1 -- detik
 
 -- Create GUI
 local ScreenGui = Instance.new("ScreenGui")
@@ -106,7 +106,7 @@ local function teleportToRandomPlayer()
     if targetPlayer then
         local targetChar = targetPlayer.Character
         if targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
-            HumanoidRootPart.CFrame = targetChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+            HumanoidRootPart.CFrame = targetChar.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0)
             print("Teleported to: " .. targetPlayer.Name)
         end
     end
